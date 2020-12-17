@@ -1,0 +1,28 @@
+[
+    {
+        "name": "jacktrip",
+        "image": "docker.io/danhigham/jacktrip",
+        "cpu": 1024,
+        "memory": 2048,
+        "essential": true,
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-region": "eu-west-2",
+            "awslogs-group": "/ecs/run-jacktrip",
+            "awslogs-stream-prefix": "ecs"
+          }
+        },
+        "portMappings": [
+          {
+            "containerPort": 4464,
+            "hostPort": 4464,
+            "protocol": "tcp"
+          }, {
+            "containerPort": 4464,
+            "hostPort": 4464,
+            "protocol": "udp"
+          }
+        ]
+      }
+]

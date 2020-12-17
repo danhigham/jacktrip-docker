@@ -33,6 +33,6 @@ RUN chmod +x start-jacktrip.sh
 
 CMD ["start-jacktrip.sh"]
 
-EXPOSE 1234/tcp
+EXPOSE 61002/tcp
 EXPOSE 4464/tcp
 EXPOSE 4464/udp

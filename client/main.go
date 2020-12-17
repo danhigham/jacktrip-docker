@@ -13,9 +13,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/fatih/color"
 )
 
 func main() {
+	boldRed := color.New(color.FgRed).Add(color.Bold)
+
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
@@ -33,7 +36,7 @@ func main() {
 			{
 				Name: aws.String("tag:Name"),
 				Values: []*string{
-					aws.String("Main"),
+					aws.String("jacktrip"),
 				},
 			},
 		},
@@ -140,8 +143,56 @@ func main() {
 
 	task = descResult.Tasks[0]
 
+	go func() {
+
+		descInput := &ecs.DescribeTasksInput{
+			Cluster: aws.String("jacktrip"),
+			Tasks:   []*string{taskArn},
+		}
+
+		descResult, err = svc.DescribeTasks(descInput)
+		if err != nil {
+			panic(err)
+		}
+
+		container := descResult.Tasks[0].Containers[0]
+		for len(container.NetworkInterfaces) == 0 {
+			descResult, err = svc.DescribeTasks(descInput)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		// find attachment
+		for _, attach := range descResult.Tasks[0].Attachments {
+			if *attach.Type == "ElasticNetworkInterface" {
+				for _, detail := range attach.Details {
+					if *detail.Name == "networkInterfaceId" {
+						descNIInput := &ec2.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: []*string{detail.Value},
+						}
+
+						descResult, err := ec2svc.DescribeNetworkInterfaces(descNIInput)
+						if err != nil {
+							panic(err)
+						}
+
+						publicIP := descResult.NetworkInterfaces[0].Association.PublicIp
+
+						fmt.Printf("\nThis jacktrip server's IP is ")
+						boldRed.Printf("%s\n", *publicIP)
+
+					}
+				}
+
+			}
+		}
+
+	}()
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+
 	go func() {
 		for range c {
 			// sig is a ^C, handle it

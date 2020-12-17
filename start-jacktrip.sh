@@ -1,3 +1,4 @@
 #!/bin/bash
-jackd -d dummy &
-jacktrip -s --localaddress 0.0.0.0
+jackd -ddummy -r48000 -p512 &
+sleep 5 &&
+jacktrip -S -p2
