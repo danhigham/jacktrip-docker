@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,13 +18,23 @@ import (
 	"github.com/fatih/color"
 )
 
+var region string
+var hubPatch int
+
+func init() {
+	flag.StringVar(&region, "region", "us-east-1", "AWS region, in which to create a jacktrip instance")
+	flag.IntVar(&hubPatch, "hubpatch", 2, "Hub auto audio patch, only has effect if running HUB SERVER mode, 0=server-to-clients, 1=client loopback, 2=clients can hear all clients except themselves, 3=reserved for TUB, 4=full mix (default: 0), i.e. clients auto-connect and hear all clients including themselves")
+}
+
 func main() {
+	flag.Parse()
+
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Config: aws.Config{
-			Region: aws.String("eu-west-2"),
+			Region: aws.String(region),
 		},
 	}))
 
@@ -42,6 +54,9 @@ func main() {
 		},
 	}
 	subnets, err := ec2svc.DescribeSubnets(descSubnetsInput)
+	if err != nil {
+		panic(err)
+	}
 
 	descSGsInput := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
@@ -54,6 +69,9 @@ func main() {
 		},
 	}
 	securityGroups, err := ec2svc.DescribeSecurityGroups(descSGsInput)
+	if err != nil {
+		panic(err)
+	}
 
 	input := &ecs.RunTaskInput{
 		Cluster:        aws.String("jacktrip"),
@@ -64,6 +82,19 @@ func main() {
 				AssignPublicIp: aws.String("ENABLED"),
 				SecurityGroups: []*string{aws.String(*securityGroups.SecurityGroups[0].GroupId)},
 				Subnets:        []*string{aws.String(*subnets.Subnets[0].SubnetId)},
+			},
+		},
+		Overrides: &ecs.TaskOverride{
+			ContainerOverrides: []*ecs.ContainerOverride{
+				&ecs.ContainerOverride{
+					Name: aws.String("jacktrip"),
+					Environment: []*ecs.KeyValuePair{
+						&ecs.KeyValuePair{
+							Name:  aws.String("HUB_PATCH"),
+							Value: aws.String(strconv.Itoa(hubPatch)),
+						},
+					},
+				},
 			},
 		},
 	}

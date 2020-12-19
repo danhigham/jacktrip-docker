@@ -9,7 +9,7 @@ terraform {
 
 provider "aws" {
   profile = "default"
-  region  = "eu-west-2"
+  region  = var.region
 }
 
 resource "aws_iam_role" "jacktrip-task-execution-role" {
@@ -54,7 +54,40 @@ resource "aws_ecs_task_definition" "run-jacktrip" {
   execution_role_arn = aws_iam_role.jacktrip-task-execution-role.arn
   cpu = "1024"
   memory = "2048"
-  container_definitions = file("task-definitions/run-jacktrip.json")
+  container_definitions =<<DEF
+  [
+    {
+      "name": "jacktrip",
+      "image": "docker.io/danhigham/jacktrip",
+      "cpu": 1024,
+      "memory": 2048,
+      "essential": true,
+      "environment": [{
+        "name": "HUB_PATCH",
+        "value": "2"
+      }],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-region": "${var.region}",
+          "awslogs-group": "/ecs/run-jacktrip",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "portMappings": [
+        {
+          "containerPort": 4464,
+          "hostPort": 4464,
+          "protocol": "tcp"
+        }, {
+          "containerPort": 4464,
+          "hostPort": 4464,
+          "protocol": "udp"
+        }
+      ]
+    }
+  ]
+  DEF
   network_mode = "awsvpc"
 }
 
@@ -108,7 +141,7 @@ resource "aws_route_table_association" "a" {
 }
 
 resource "aws_route" "r" {
-  route_table_id              = aws_route_table.jacktrip.id
+  route_table_id  = aws_route_table.jacktrip.id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id = aws_internet_gateway.igw.id
 }
